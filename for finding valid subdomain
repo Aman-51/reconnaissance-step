@@ -1,0 +1,6 @@
+subfinder -d target.com >s1
+subfinder -dL s1 >s2
+sort s1 s2 >s3
+uniq -u s3 >us
+cat us | httpx-toolkit >subhttpx
+eyewitness fr screenshot
