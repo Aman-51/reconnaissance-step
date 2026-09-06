@@ -1,6 +1,44 @@
 subfinder -d target.com >s1
 subfinder -dL s1 >s2
 sort s1 s2 >s3
-uniq -u s3 >us
-cat us | httpx-toolkit >subhttpx
+sort wolt_subdomains.txt | uniq > clean_wolt_subdomains.txt
+
+
+>>>Dead Subdomains ko hatana (dnsx ka use karke)(jinka ip hi nahi bacha)
+cat clean_wolt_subdomains.txt | dnsx -silent > resolving_subdomains.txt
+
+>>>> Live Web Subdomains ki list banayein
+cat total_resolving.txt | httpx -silent | sed 's/https\?:\/\///' | sort -u > web_only.txt
+
+
+>>>>>Bache hue (Non-Web) Subdomains ko filter karein (The Magic Command)
+grep -v -x -f web_only.txt total_resolving.txt > non_web_targets.txt
+
+
+Step 1: Services aur Open Ports Find Karna (Naabu)
+Kyunki in par HTTP (80/443) nahi chal raha, humein pata lagana hoga ki aakhir in par chal kya raha hai. Hum Naabu ka use karke top 1000 common ports scan karenge.
+
+Bash
+naabu -l non_web_targets.txt -top-ports 1000 -c 50 -rate 2000 -silent -o open_ports.txt
+Kyun kiya? Yeh command check karegi ki kya kisi server par FTP (21), SSH (22), MySQL (3306), Redis (6379), ya MongoDB (27017) jaise ports khule hue hain. Results open_ports.txt mein subdomain:port format mein save honge.
+
+Step 2: Automated Misconfiguration Testing (Nuclei)
+Ab jo ports khule mile hain, humein un par default passwords ya known network vulnerabilities check karni hain. Nuclei ka network/ module iske liye best hai.
+
+Bash
+nuclei -l open_ports.txt -t network/ -tags default-login,misconfig -o network_bugs.txt
+Kyun kiya? Yeh command bina brute-force kiye check karegi ki kya kisi FTP par anonymous login on hai, ya kisi database par bina password ke login ho raha hai. Agar koi bug milta hai, toh wo network_bugs.txt mein save ho jayega.
+
+Step 3: Subdomain Takeover Check Karna (Nuclei)
+In "non-web" subdomains mein se bohot saare subdomains aise honge jin par koi port open nahi hoga aur wo DNS level par dead honge (jaise kisi delete ho chuke AWS S3 bucket ya GitHub page ko point kar rahe hon). Yeh Subdomain Takeover ke liye perfect targets hain.
+
+Bash
+nuclei -l non_web_targets.txt -t takeovers/ -o takeovers_found.txt
+Kyun kiya? Yeh command check karegi ki kya koi DNS record kisi aisi third-party service ko point kar raha hai jise aap claim karke company ka subdomain hijack kar sakte hain. Yeh bug bounty mein P2/P3 level ka critical bug hota hai.
+
+Step 4: Manual Verification (High-Reward Checks)
+Agar Nuclei kuch miss kar deta hai, toh aap open_ports.txt ko manually dekh kar yeh high-reward bugs check kar sakte hain:
+
+
+
 eyewitness fr screenshot
