@@ -4,15 +4,17 @@ sort s1 s2 >s3
 sort wolt_subdomains.txt | uniq > clean_wolt_subdomains.txt
 
 
->>>Dead Subdomains ko hatana (dnsx ka use karke)(jinka ip hi nahi bacha)
-cat clean_wolt_subdomains.txt | dnsx -silent > resolving_subdomains.txt
-
->>>> Live Web Subdomains ki list banayein
-cat total_resolving.txt | httpx -silent | sed 's/https\?:\/\///' | sort -u > web_only.txt
-
-
->>>>>Bache hue (Non-Web) Subdomains ko filter karein (The Magic Command)
-grep -v -x -f web_only.txt total_resolving.txt > non_web_targets.txt
+1.Subdomain Enumeration:Amass (Ya Subfinder).Sabse pehle target ke saare subdomains dhoondhein aur unhe bina kisi kachre ke ek file mein save karein.Bashamass enum -d target.com
+amass subs -d target.com -names -silent | sort -u > all_subdomains.txt
+(Pro-tip: Amass slow lage toh aap subfinder -d target.com -silent | sort -u > all_subdomains.txt bhi use kar sakte hain).
+2.DNS Resolution (Zinda IPs filter karein):dnsx.In subdomains mein se pata lagayein ki kiske paas asli IP address hai aur kaun dead hai. Slow speed aur multiple resolvers ka use karein taaki drop na ho.Bashcat all_subdomains.txt | dnsx -silent -t 20 -retry 3 -r 8.8.8.8,1.1.1.1,9.9.9.9 | sort -u > resolving_subdomains.txt
+3.Find Dead Domains & Test Takeovers:grep + nuclei.Total list mein se resolving wale hata kar Dead Subdomains nikalein, aur unpar Subdomain Takeover check karein.Bashgrep -v -x -f resolving_subdomains.txt all_subdomains.txt > dead_subdomains.txt
+nuclei -l dead_subdomains.txt -t takeovers/ -o takeover_bugs.txt
+4.Filter Live Web Targets:httpx.Resolving IPs mein se wo targets nikalein jinpar Website (Port 80/443) chal rahi hai. Isey aap baad mein XSS, SQLi aadi ke liye use karenge.Bashcat resolving_subdomains.txt | httpx -silent -status-code -title -tech-detect > live_websites.txt
+(Next step ke liye ek clean list bhi bana lein jisme se https:// hata ho):Bash cat resolving_subdomains.txt | httpx -silent | sed 's/https\?:\/\///' | sort -u > web_only.txt
+5.Extract Non-Web Targets:grep.Resolving subdomains mein se Web wale hata dein, taaki sirf hidden infrastructure (Databases, FTP, SSH) wale targets bachein.Bashgrep -v -x -f web_only.txt resolving_subdomains.txt > non_web_targets.txt
+6.Scan for Hidden Open Ports:naabu.Non-web targets par top 1000 ports scan karein taaki open databases aur services ka pata chal sake.Bashnaabu -l non_web_targets.txt -top-ports 1000 -c 50 -silent -o open_ports.txt
+7.Hunt for Network Bugs & Default Logins:nuclei.Jo ports khule mile hain, unpar Nuclei ke network templates run karein taaki data leaks aur default passwords (admin:admin) mil sakein.Bashnuclei -l open_ports.txt -t network/ -tags default-login,misconfig -o network_bug
 
 
 Step 1: Services aur Open Ports Find Karna (Naabu)
